@@ -115,6 +115,11 @@
       <span class="visually-hidden">Next</span>
     </button>
   </div>
+<div class="container w-50 p-3 d-flex justify-content-end">
+  <a class="btn btn-primary" href="{{ url_for('compounds.edit_compound', id=compound.id) }}">
+    Edit Compound
+  </a>
+</div>
 <div class="container w-50 p-3">
     <table class="table table-bordered">
       <tbody>

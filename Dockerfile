@@ -18,6 +18,8 @@ RUN conda env create -f environment.yml --name npmine_web_app_prod
 
 SHELL ["/bin/bash", "-c", "source /opt/conda/etc/profile.d/conda.sh && conda activate npmine_web_app_prod && exec \"$@\""]
 
+COPY populate_database.py populate_database.py 
+
 EXPOSE 5000
 
 CMD gunicorn --bind 0.0.0.0:5000 'websiteNPMINE:create_app()'

@@ -43,7 +43,7 @@ def data():
     if not order:
         order.append(Compounds.id.asc())
 
-    query = Compounds.query.filter_by(status='public')
+    query = Compounds.query
     if search:
         query = query.filter(search_query)
     total = query.count()

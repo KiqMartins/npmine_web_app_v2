@@ -26,8 +26,8 @@ class Accounts(db.Model, UserMixin):
     email = db.Column(db.String(120), unique=True, nullable=False)
     password = db.Column(db.String(128), nullable=False)
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
-    deleted_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    deleted_at = db.Column(db.DateTime, nullable=True)
 
     role_id = db.Column(db.Integer, db.ForeignKey('role.id'), nullable=False, default=user_role_id)  
     role = db.relationship('Role', backref=db.backref('accounts', lazy='dynamic'))
@@ -50,13 +50,9 @@ class Accounts(db.Model, UserMixin):
     
     def soft_delete(self):
         self.deleted_at = datetime.utcnow()
-        db.session.add(self)
-        db.session.commit()
 
     def restore(self):
         self.deleted_at = None
-        db.session.add(self)
-        db.session.commit()
 
 # Association tables with delete cascade
 doicomp = db.Table(
@@ -74,9 +70,6 @@ doitaxa = db.Table(
 class DOI(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     doi = db.Column(db.String(150), unique=True)
-    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
-    deleted_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
 
     compounds = db.relationship('Compounds', 
                                 secondary=doicomp, 
@@ -117,8 +110,8 @@ class Compounds(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('accounts.id'))
     status = db.Column(db.String(10), nullable=False, default='private')
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
-    deleted_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, nullable=True, default=datetime.utcnow)
+    deleted_at = db.Column(db.DateTime, nullable=True, default=datetime.utcnow)
 
     account = db.relationship("Accounts", backref="compounds")
     dois = db.relationship('DOI', 
@@ -159,6 +152,11 @@ class Compounds(db.Model):
         db.session.add(self)
         db.session.commit()
 
+    history = db.relationship('CompoundHistory', 
+        backref='compound', 
+        lazy='dynamic', 
+        cascade='all, delete-orphan')
+
 class Taxa(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     article_url = db.Column(db.String(5000))
@@ -179,3 +177,20 @@ class Taxa(db.Model):
 
     def __repr__(self):
         return f'<Taxa: {self.verbatim}, {self.article_url}, {self.classificationpath}, {self.classificationrank}, {self.user_id}>'
+    
+class CompoundHistory(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    compound_id = db.Column('compound_id', db.Integer, db.ForeignKey('compounds.id', ondelete="CASCADE"))
+    active = db.Column(db.Boolean, default=True, nullable=True) 
+    journal = db.Column(db.String(5000))
+    smiles = db.Column(db.String(5000))
+    article_url = db.Column(db.String(500))
+    inchi_key = db.Column(db.String(5000))
+    exact_molecular_weight = db.Column(db.Float)
+    class_results = db.Column(db.String(5000))
+    superclass_results = db.Column(db.String(5000))
+    pathway_results = db.Column(db.String(5000))
+    pubchem_id = db.Column(db.String(5000))
+    inchi = db.Column(db.String(5000))
+    source = db.Column(db.String(10))
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)

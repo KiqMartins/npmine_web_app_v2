@@ -21,9 +21,6 @@ def upgrade():
     op.create_table('doi',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('doi', sa.String(length=150), nullable=True),
-    sa.Column('created_at', sa.DateTime(), nullable=False),
-    sa.Column('updated_at', sa.DateTime(), nullable=True),
-    sa.Column('deleted_at', sa.DateTime(), nullable=True),
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('doi')
     )

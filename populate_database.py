@@ -74,8 +74,8 @@ if not admin_id:
 
     # Insert the admin user with the created_at field and admin role_id
     cursor.execute(
-        "INSERT INTO accounts (username, email, password, created_at, role_id) VALUES (%s, %s, %s, %s, %s) RETURNING id",
-        ('admin', NPMINE_WEB_APP_EMAIL, admin_password_hash, datetime.utcnow(), admin_role_id)
+        "INSERT INTO accounts (username, email, password, created_at, updated_at, role_id) VALUES (%s, %s, %s, %s, %s, %s) RETURNING id",
+        ('admin', NPMINE_WEB_APP_EMAIL, admin_password_hash, datetime.utcnow(), datetime.utcnow(), admin_role_id)
     )
     admin_id = cursor.fetchone()[0]
 else:
