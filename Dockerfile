@@ -4,6 +4,7 @@ WORKDIR /app
 
 COPY environment.yml environment.yml
 RUN conda env create -f environment.yml --name npmine_web_app
+RUN apt-get update && apt-get install -y curl
 
 SHELL ["conda", "run", "-n", "npmine_web_app", "/bin/bash", "-c"]
 

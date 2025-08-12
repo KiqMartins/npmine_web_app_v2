@@ -47,7 +47,7 @@ def upgrade():
     op.create_table('compounds',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('journal', sa.String(length=5000), nullable=True),
-    sa.Column('compound_name', sa.String(length=5000), nullable=True),
+    sa.Column('compound_name', sa.String(length=1024), nullable=True),
     sa.Column('compound_image', sa.String(length=5000), nullable=True),
     sa.Column('smiles', sa.String(length=5000), nullable=True),
     sa.Column('article_url', sa.String(length=500), nullable=True),
@@ -56,7 +56,8 @@ def upgrade():
     sa.Column('class_results', sa.String(length=5000), nullable=True),
     sa.Column('superclass_results', sa.String(length=5000), nullable=True),
     sa.Column('pathway_results', sa.String(length=5000), nullable=True),
-    sa.Column('isglycoside', sa.String(length=5000), nullable=True),
+    sa.Column('isglycoside', sa.Boolean(), nullable=True, server_default=sa.text('true')),
+    sa.Column('ispublic', sa.Boolean(), nullable=True, server_default=sa.text('true')),
     sa.Column('pubchem_id', sa.String(length=5000), nullable=True),
     sa.Column('inchi', sa.String(length=5000), nullable=True),
     sa.Column('source', sa.String(length=10), nullable=True),
@@ -66,6 +67,27 @@ def upgrade():
     sa.Column('updated_at', sa.DateTime(), nullable=True),
     sa.Column('deleted_at', sa.DateTime(), nullable=True),
     sa.ForeignKeyConstraint(['user_id'], ['accounts.id'], ),
+    sa.PrimaryKeyConstraint('id')
+    )
+    op.create_table('compound_history',
+    sa.Column('id', sa.Integer(), nullable=False),
+    sa.Column('compound_id', sa.Integer(), nullable=True),
+    sa.Column('active', sa.Boolean(), nullable=True, server_default=sa.text('true')),
+    sa.Column('journal', sa.String(length=5000), nullable=True),
+    sa.Column('smiles', sa.String(length=5000), nullable=True),
+    sa.Column('article_url', sa.String(length=500), nullable=True),
+    sa.Column('inchi_key', sa.String(length=5000), nullable=True),
+    sa.Column('exact_molecular_weight', sa.Float(), nullable=True),
+    sa.Column('class_results', sa.String(length=5000), nullable=True),
+    sa.Column('superclass_results', sa.String(length=5000), nullable=True),
+    sa.Column('pathway_results', sa.String(length=5000), nullable=True),
+    sa.Column('pubchem_id', sa.String(length=5000), nullable=True),
+    sa.Column('inchi', sa.String(length=5000), nullable=True),
+    sa.Column('source', sa.String(length=10), nullable=True),
+    sa.Column('created_at', sa.DateTime(), nullable=False, server_default=sa.func.now()),
+    sa.Column('updated_at', sa.DateTime(), nullable=True, server_default=sa.func.now()),
+    sa.Column('deleted_at', sa.DateTime(), nullable=True),
+    sa.ForeignKeyConstraint(['compound_id'], ['compounds.id'], ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_table('taxa',
@@ -105,6 +127,7 @@ def downgrade():
     op.drop_table('doitaxa')
     op.drop_table('doicomp')
     op.drop_table('taxa')
+    op.drop_table('compound_history')
     op.drop_table('compounds')
     op.drop_table('accounts')
     op.drop_table('role')

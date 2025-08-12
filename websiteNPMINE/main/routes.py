@@ -19,10 +19,10 @@ def home():
     
 @main.route('/api/data')
 def data():
-
     start = request.args.get('start', type=int, default=0)
     length = request.args.get('length', type=int, default=10)
-
+    show_deleted = request.args.get('show_deleted', 'false').lower() == 'true'
+    search_term = request.args.get('search', None)
 
     search = request.args.get('search', '').strip()
     search_query = or_(
@@ -42,10 +42,21 @@ def data():
         order.append(getattr(col, direction + 'asc')())
     if not order:
         order.append(Compounds.id.asc())
-
+        
     query = Compounds.query
-    if search:
-        query = query.filter(search_query)
+
+    if not show_deleted:
+        query = query.filter(Compounds.deleted_at.is_(None))
+
+    if search_term:
+        search_filter = f"%{search_term}%"
+        query = query.filter(
+            or_(
+                Compounds.compound_name.ilike(search_filter),
+                Compounds.inchikey.ilike(search_filter),
+                Compounds.pubchem.ilike(search_filter)
+            )
+        )
     total = query.count()
     query = query.order_by(*order).offset(start).limit(length)
     compounds = query.all()
@@ -163,9 +174,9 @@ def delete_compound_and_related(compound):
                 if taxon_related_compounds == 0:
                     db.session.delete(taxon)
 
-            db.session.delete(doi)
+            DOI.soft_delete(doi)
 
-    db.session.delete(compound)
+    Compounds.soft_delete(compound)
 
 @main.route('/compound/<int:compound_id>/delete', methods=['POST'])
 @csrf.exempt

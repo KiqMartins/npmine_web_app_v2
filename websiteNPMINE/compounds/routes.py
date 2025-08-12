@@ -1,7 +1,7 @@
 from flask import Blueprint, render_template, flash, redirect, url_for, request, current_app, g,jsonify, Response
 from flask_login import login_required, current_user
 from websiteNPMINE.compounds.forms import CompoundForm, SearchForm, CompoundEditForm
-from websiteNPMINE.models import Compounds,DOI,Taxa
+from websiteNPMINE.models import Compounds,DOI,Taxa, CompoundHistory
 from websiteNPMINE import db
 import os
 import json
@@ -59,7 +59,7 @@ def registerCompound():
             db.session.add(new_doi)
             db.session.commit()
             existing_doi = new_doi
-        else:
+        else:   
             flash('DOI already in database!', 'info')
 
         compound_blocks = request.form.getlist('inchikey')
@@ -113,14 +113,15 @@ def registerCompound():
                     flash(f'Compound with InChI Key {inchikey} duplicated for your account.', 'info')
             else:
                 pubchem_data = fetch_pubchem_data(inchikey)
+
                 if not pubchem_data:
-                    flash(f'Failed to fetch data from PubChem for Compound {i + 1}', 'error')
-                    continue
+                    flash(f'Failed to fetch data from PubChem for Compound', 'error')
+                    return render_template('new_compound.html', form=form, logged_in=logged_in)
 
                 smiles = pubchem_data.get('smiles')
                 if not smiles:
                     flash(f'SMILES not found for Compound {i + 1}', 'error')
-                    continue
+                    return render_template('new_compound.html', form=form, logged_in=logged_in)
 
                 # Fetch NP Classifier data
                 try:
@@ -194,13 +195,27 @@ def registerCompound():
 
 def fetch_pubchem_data(inchikey):
     try:
-        compound = pcp.get_compounds(inchikey, 'inchikey')[0]
+        required_properties = [
+            'canonical_smiles',
+            'inchi',
+            'molecular_weight',
+            'synonyms'
+        ]
+        
+        compound = pcp.get_compounds(inchikey, 'inchikey', properties=required_properties)
+        
+        if not compound:
+            print(f"No compound found for InChIKey: {inchikey}", flush=True)
+            return None
+        
+        compoundData = compound[0]
+
         return {
-            'compound_name': compound.synonyms[0] if compound.synonyms else None,
-            'smiles': compound.canonical_smiles,
-            'inchi': compound.inchi,
-            'exact_molecular_weight': compound.molecular_weight,
-            'pubchem_id': compound.cid
+            'compound_name': compoundData.synonyms[0] if compoundData.synonyms else None,
+            'smiles': compoundData.canonical_smiles if compoundData.canonical_smiles else None,
+            'inchi': compoundData.inchi,    
+            'exact_molecular_weight': compoundData.molecular_weight,
+            'pubchem_id': compoundData.cid
         }
     except pcp.PubChemHTTPError as e:
         print(f"PubChem HTTP Error: {e}")
@@ -422,6 +437,8 @@ def edit_compound(id):
     compound = Compounds.query.get_or_404(id)
     form = CompoundEditForm(obj=compound)
 
+    history_records = CompoundHistory.query.filter_by(compound_id=id).order_by(CompoundHistory.created_at.desc()).all()
+
     form.dois.entries.clear()
     for doi in compound.dois:
         form.dois.append_entry({'doi': doi.doi})
@@ -433,6 +450,22 @@ def edit_compound(id):
 
         old_smiles = compound.smiles
 
+        history_entry = CompoundHistory(
+            compound_id=compound.id,
+            journal=compound.journal,
+            smiles=compound.smiles,
+            article_url=compound.article_url,
+            inchi_key=compound.inchi_key,
+            exact_molecular_weight=compound.exact_molecular_weight,
+            class_results=compound.class_results,
+            superclass_results=compound.superclass_results,
+            pathway_results=compound.pathway_results,
+            pubchem_id=compound.pubchem_id,
+            inchi=compound.inchi,
+        )
+
+        db.session.add(history_entry)
+
         compound.journal = form.journal.data or compound.journal
         compound.compound_name = form.compound_name.data or compound.compound_name
         compound.smiles = form.smiles.data or compound.smiles
@@ -440,11 +473,12 @@ def edit_compound(id):
         compound.class_results = form.class_results.data or compound.class_results
         compound.superclass_results = form.superclass_results.data or compound.superclass_results
         compound.pathway_results = form.pathway_results.data or compound.pathway_results
-        compound.isglycoside = form.isglycoside.data or compound.isglycoside
+        compound.isglycoside = (form.isglycoside.data == 'True') 
         compound.pubchem_id = form.pubchem_id.data or compound.pubchem_id
         compound.inchi = form.inchi.data or compound.inchi
         compound.article_url = form.article_url.data or compound.article_url
-        compound.status = form.status.data or compound.status
+        compound.ispublic = (form.ispublic.data == 'True')
+        compound.inchi_key = form.inchi_key.data or compound.inchi_key
 
         print("DOIs before update:", [d.doi for d in compound.dois])
         
@@ -475,15 +509,66 @@ def edit_compound(id):
             print("Update successful")
         except Exception as e:
             db.session.rollback()
-            flash("An error occurred while updating the compound. Please try again.", "danger")
+            flash(f"An error occurred while updating the compound. Please try again. {e}", "danger")
             print("Error committing to database:", e)
         
-        return redirect(url_for('main.compound', compound_id=compound.id))
+        return render_template(
+            'editCompound.html', 
+            form=form, 
+            compound=compound, 
+            history_records=history_records,
+            related_taxa=related_taxa, 
+            logged_in=logged_in
+        )
 
     else:
+        #flash(f"An error occurred while updating the compound. Please try again. {form.errors}", "danger")
         print("Form validation errors:", form.errors)
 
-    return render_template('editCompound.html', form=form, compound=compound, related_taxa=related_taxa, logged_in=logged_in)
+    return render_template(
+            'editCompound.html', 
+            form=form, 
+            compound=compound, 
+            history_records=history_records,
+            related_taxa=related_taxa, 
+            logged_in=logged_in
+        )
+
+
+@compounds.route('/compound/revert/<int:history_id>', methods=['POST'])
+@login_required
+def revert_compound(history_id):
+    history_record = CompoundHistory.query.get_or_404(history_id)
+    main_compound = Compounds.query.get_or_404(history_record.compound_id)
+
+    current_state_history = CompoundHistory(
+        compound_id=main_compound.id,
+        smiles=main_compound.smiles,
+        journal=main_compound.journal,
+        article_url=main_compound.article_url,
+        inchi_key=main_compound.inchi_key,
+    )
+    db.session.add(current_state_history)
+
+    main_compound.journal = history_record.journal
+    main_compound.smiles = history_record.smiles
+    main_compound.article_url = history_record.article_url
+    main_compound.inchi_key = history_record.inchi_key
+    main_compound.exact_molecular_weight = history_record.exact_molecular_weight
+    main_compound.class_results = history_record.class_results
+    main_compound.superclass_results = history_record.superclass_results
+    main_compound.pathway_results = history_record.pathway_results
+    main_compound.pubchem_id = history_record.pubchem_id
+    main_compound.inchi = history_record.inchi
+
+    try:
+        db.session.commit()
+        flash(f"Compound reverted to version from {history_record.created_at.strftime('%Y-%m-%d %H:%M')}.", "success")
+    except Exception as e:
+        db.session.rollback()
+        flash(f"An error occurred while reverting the compound: {e}", "danger")
+
+    return redirect(url_for('compounds.edit_compound', id=main_compound.id))
 
 @compounds.route('/compound/<int:id>/delete', methods=['POST'])
 @login_required

@@ -123,6 +123,11 @@
       <br><br>
       <h2>Edit Compound: {{ compound.compound_name }}</h2>
       <br>
+      <div class="d-flex justify-content-end">
+        <button type="button" class="btn btn-outline-secondary" data-toggle="modal" data-target="#historyModal">
+          View History
+        </button>
+      </div>
 
       <div id="manualInput" style="display:block;">
           <form method="POST" action="{{ url_for('compounds.edit_compound', id=compound.id) }}">
@@ -143,11 +148,12 @@
 
               <div class="form-group">{{ form.class_results.label }} {{ form.class_results(class="form-control") }}</div>
               <div class="form-group">{{ form.superclass_results.label }} {{ form.superclass_results(class="form-control") }}</div>
+              <div class="form-group">{{ form.inchi_key.label }} {{ form.inchi_key(class="form-control") }}</div>
               <div class="form-group">{{ form.pathway_results.label }} {{ form.pathway_results(class="form-control") }}</div>
               <div class="form-group">{{ form.isglycoside.label }} {{ form.isglycoside(class="form-control") }}</div>
               <div class="form-group">{{ form.pubchem_id.label }} {{ form.pubchem_id(class="form-control") }}</div>
               <div class="form-group">{{ form.article_url.label }} {{ form.article_url(class="form-control") }}</div>
-              <div class="form-group">{{ form.status.label }} {{ form.status(class="form-control") }}</div>
+              <div class="form-group">{{ form.ispublic.label }} {{ form.ispublic(class="form-control") }}</div>
 
               <!-- DOIs Section -->
               <h3>DOIs</h3>
@@ -173,6 +179,71 @@
           </form>
       </div>
   </div>
+
+  <div class="modal fade" id="historyModal" tabindex="-1" role="dialog" aria-labelledby="historyModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl" role="document"> <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="historyModalLabel">Version History for {{ compound.compound_name }}</h5>
+          <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+            <span aria-hidden="true">&times;</span>
+          </button>
+        </div>
+        <div class="modal-body">
+          {% if history_records %}
+            <div class="accordion" id="historyAccordion">
+              {% for history in history_records %}
+                <div class="card">
+                  <div class="card-header" id="heading-{{ history.id }}">
+                    <h2 class="mb-0">
+                      <button class="btn btn-link" type="button" data-toggle="collapse" data-target="#collapse-{{ history.id }}" aria-expanded="true" aria-controls="collapse-{{ history.id }}">
+                        Version from: {{ history.created_at.strftime('%Y-%m-%d %H:%M:%S') }} UTC
+                      </button>
+                    </h2>
+                  </div>
+                  <div class="card-footer text-right">
+                    <form method="POST" action="{{ url_for('compounds.revert_compound', history_id=history.id) }}" onsubmit="return confirm('Are you sure you want to revert to this version? The current data will be saved as a new version.');">
+                        
+                        {{ form.hidden_tag() }}
+
+                        <button type="submit" class="btn btn-sm btn-info">Set Active</button>
+                    </form>
+                  </div>
+                  <div id="collapse-{{ history.id }}" class="collapse {% if loop.first %}show{% endif %}" aria-labelledby="heading-{{ history.id }}" data-parent="#historyAccordion">
+                    <div class="card-body">
+                      <ul class="list-group list-group-flush">
+                        <li class="list-group-item"><strong>SMILES:</strong> <code>{{ history.smiles or 'N/A' }}</code></li>
+                        <li class="list-group-item"><strong>InChI:</strong> <code>{{ history.inchi or 'N/A' }}</code></li>
+                        <li class="list-group-item"><strong>InChI Key:</strong> <code>{{ history.inchi_key or 'N/A' }}</code></li>
+                        <li class="list-group-item"><strong>PubChem ID:</strong> {{ history.pubchem_id or 'N/A' }}</li>
+                        <li class="list-group-item"><strong>Exact Molecular Weight:</strong> {{ history.exact_molecular_weight or 'N/A' }}</li>
+                        
+                        <li class="list-group-item"><strong>Journal:</strong> {{ history.journal or 'N/A' }}</li>
+                        <li class="list-group-item"><strong>Article URL:</strong> <a href="{{ history.article_url }}" target="_blank" rel="noopener noreferrer">{{ history.article_url or 'N/A' }}</a></li>
+
+                        <li class="list-group-item"><strong>Superclass:</strong> {{ history.superclass_results or 'N/A' }}</li>
+                        <li class="list-group-item"><strong>Class:</strong> {{ history.class_results or 'N/A' }}</li>
+                        <li class="list-group-item"><strong>Pathway:</strong> {{ history.pathway_results or 'N/A' }}</li>
+
+                        <li class="list-group-item"><strong>Active:</strong> {% if history.active %}Yes{% else %}No{% endif %}</li>
+                        <li class="list-group-item"><strong>Source:</strong> {{ history.source or 'N/A' }}</li>
+                        <li class="list-group-item"><strong>Version Updated At:</strong> {% if history.updated_at %}{{ history.updated_at.strftime('%Y-%m-%d %H:%M:%S') }} UTC{% else %}N/A{% endif %}</li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              {% endfor %}
+            </div>
+          {% else %}
+            <p>No history found for this compound.</p>
+          {% endif %}
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
 
   <script src="{{ url_for('static', filename='jsme/jsme/jsme.nocache.js') }}"></script>
 

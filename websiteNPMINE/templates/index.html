@@ -117,6 +117,13 @@
   </div>
 {% block tablecontent %}
 <div class="container">
+  <div class="gridjs-controls mt-5" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; margin-top: 10px;">
+    <input type="text" id="search-input" placeholder="Search compounds..." class="gridjs-input">
+    <label for="show-deleted-toggle" style="cursor: pointer;">
+      <input type="checkbox" id="show-deleted-toggle" style="margin-right: 5px;">
+      Show Deleted Records
+    </label>
+  </div>
   <hr>
   <div id="table"></div>
 </div>
@@ -233,6 +240,47 @@ if (isAdmin) {
     resizable: true,
     sort: true
 });
+
+const searchInput = document.getElementById('search-input');
+  const showDeletedToggle = document.getElementById('show-deleted-toggle');
+
+  // 2. A helper function to prevent sending too many requests while typing
+  function debounce(func, delay) {
+    let timeout;
+    return function(...args) {
+      clearTimeout(timeout);
+      timeout = setTimeout(() => func.apply(this, args), delay);
+    };
+  }
+
+  // 3. Function to update the grid's URL and force a re-fetch
+  function updateAndRender() {
+    const baseUrl = '/api/data';
+    const params = new URLSearchParams();
+
+    // Get current values from the controls
+    const searchTerm = searchInput.value.trim();
+    const showDeleted = showDeletedToggle.checked;
+
+    if (searchTerm) {
+      params.set('search', searchTerm);
+    }
+    if (showDeleted) {
+      params.set('show_deleted', 'true');
+    }
+
+    // Construct the new URL and update the grid's configuration
+    // This ensures that pagination and sorting will be appended to the correct URL
+    grid.updateConfig({
+      server: {
+        url: `${baseUrl}?${params.toString()}`
+      }
+    }).forceRender(); // Force the grid to reload data from the server
+  }
+
+  // 4. Attach event listeners to the controls
+  searchInput.addEventListener('input', debounce(updateAndRender, 300)); // Debounced for performance
+  showDeletedToggle.addEventListener('change', updateAndRender); // No debounce needed for a checkbox
 
   grid.render(document.getElementById('table'));
 </script>
