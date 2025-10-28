@@ -9,6 +9,8 @@ from rdkit.Chem import Draw
 import os
 import requests
 import json
+import time
+import random
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -112,60 +114,69 @@ total_compounds = sheet_compounds.max_row - 1  # Exclude the header row
 with tqdm(total=total_compounds, desc='Populating Compounds') as pbar:
     for row in sheet_compounds.iter_rows(min_row=2, values_only=True):
         if len(row) < 8:
+            pbar.update(1)
             continue
 
         journal, smiles, article_url, inchi_key, exact_molecular_weight, pubchem_id, inchi, source = row[:8]
 
-        # Check if the article_url is already mapped to a doi_id
         if article_url in article_url_to_doi_id:
             doi_id = article_url_to_doi_id[article_url]
         else:
             doi_id = get_or_create_doi(article_url)
             article_url_to_doi_id[article_url] = doi_id
 
-        # Handle empty values
         exact_molecular_weight = float(exact_molecular_weight) if exact_molecular_weight else None
         pubchem_id = int(pubchem_id) if pubchem_id else None
 
-        # Use PubChemPy to fetch compound_name using InChI Key
-        compound_name = None  # Initialize with None
+        compound_name = None 
 
         if inchi_key:
-            try:
-                compounds = pcp.get_compounds(inchi_key, 'inchikey')
-                if compounds:
-                    compound = compounds[0]
-                    if not smiles and compound.isomeric_smiles:
-                        smiles = compound.isomeric_smiles
-                    if compound.iupac_name:
-                        compound_name = compound.iupac_name  # Store the compound name
-                else:
-                    print(f"No data found for InChI Key: {inchi_key}")
-            except Exception as e:
-                print(f"Error fetching compound_name data: {e}")
-
-        # Make a request to the NPclassifier API to get classification results
-        api_url = f'https://npclassifier.gnps2.org/classify?smiles={smiles}'
-        response = requests.get(api_url)
-        try:
-            api_data = response.json()
-        except json.decoder.JSONDecodeError as e:
-            print(f"Error decoding JSON response: {e}")
-            api_data = None  # Or any other fallback value
-
+            retries = 3
+            success = False
+            while retries > 0 and not success:
+                try:
+                    time.sleep(random.uniform(2.0, 5.0))
+                    compounds = pcp.get_compounds(inchi_key, 'inchikey')
+                    if compounds:
+                        compound = compounds[0]
+                        if not smiles and compound.isomeric_smiles:
+                            smiles = compound.isomeric_smiles
+                        if compound.iupac_name:
+                            compound_name = compound.iupac_name  # Store the compound name
+                    else:
+                        print(f"No data found for InChI Key: {inchi_key}")
+                except Exception as e:
+                    if 'ServerBusy' in str(e):
+                        retries -= 1
+                        wait_time = (3 - retries) * 5 
+                        print(f"PubChem server busy for {inchi_key}. Retries left: {retries}. Sleeping for {wait_time}s...")
+                        time.sleep(wait_time)
+                    else:
+                        print(f"PubChem API error for {inchi_key}: {e}")
+                        break  
+                        
         # Extract classification results from the API response
-        class_results = None
-        superclass_results = None
-        pathway_results = None
-        isglycoside = None
+        class_results, superclass_results, pathway_results, isglycoside = None, None, None, None
 
-        if api_data is not None:
-            class_results = api_data.get('class_results', None)
-            superclass_results = api_data.get('superclass_results', None)
-            pathway_results = api_data.get('pathway_results', None)
-            isglycoside = api_data.get('isglycoside', None)
+        if smiles:
+            try:
+                api_url = f'https://npclassifier.gnps2.org/classify?smiles={smiles}'
+                response = requests.get(api_url, timeout=10)
+                response.raise_for_status()
+                
+                api_data = response.json() 
+
+                class_results = api_data.get('class_results', None)
+                superclass_results = api_data.get('superclass_results', None)
+                pathway_results = api_data.get('pathway_results', None)
+                isglycoside = api_data.get('isglycoside', None)
+
+            except requests.exceptions.RequestException as e:
+                print(f"NPclassifier request error for SMILES {smiles}: {e}")
+            except json.decoder.JSONDecodeError as e:
+                print(f"NPclassifier JSON error for SMILES {smiles}. Response: {response.text}")
         else:
-            print("API response is None, skipping classification results")
+            print(f"Skipping NPclassifier for {inchi_key} (no SMILES available)")
 
         # Insert the compound into the Compounds table
         cursor.execute(
@@ -194,7 +205,7 @@ with tqdm(total=total_compounds, desc='Populating Compounds') as pbar:
             )
 
         # Update the progress bar
-        pbar.update()
+        pbar.update(1)
 
 # Populate the Taxa table from XLSX
 workbook_taxons = load_workbook('dados_teste/df_taxons_final.xlsx')
