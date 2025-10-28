@@ -4,6 +4,7 @@ from itsdangerous import URLSafeTimedSerializer as Serializer
 from flask import current_app
 from datetime import datetime
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy.types import UserDefinedType
 
 admin_role_id = 1
 editor_role_id = 2
@@ -12,6 +13,10 @@ user_role_id = 3
 @login_manager.user_loader
 def load_user(user_id):
     return Accounts.query.get(int(user_id))
+
+class MOL(UserDefinedType):
+    def get_col_spec(self, **kw):
+        return "MOL"
 
 class Role(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -96,6 +101,7 @@ class Compounds(db.Model):
     journal = db.Column(db.String(5000))
     compound_name = db.Column(db.String(5000))
     compound_image = db.Column(db.String(5000))
+    molecule = db.Column(MOL(), nullable=True)
     smiles = db.Column(db.String(5000))
     article_url = db.Column(db.String(500))
     inchi_key = db.Column(db.String(5000))
