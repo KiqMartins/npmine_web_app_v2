@@ -2,124 +2,18 @@
 
 {% block bannercontent %}
 <!-- Banner -->
-<div class="container">
-  <nav class="navbar navbar-expand-lg bg-body-tertiary">
-    <div class="container-fluid">
-      <div class="collapse navbar-collapse" id="navbarNavDropdown">
-        <ul class="navbar-nav">
-          <li class="nav-item">
-            {% if logged_in %}
-            <div class="nav-item dropdown">
-              <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownMenuLink" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                Hello, {{ current_user.username }}!
-              </a>
-              <div class="dropdown-menu" aria-labelledby="navbarDropdownMenuLink">
-                <a class="dropdown-item" href="{{ url_for('main.profile', profile_id=current_user.id) }}">My Compounds</a>
-                <!-- Add more dropdown items as needed -->
-              </div>
-            </div>
-            {% endif %}
-          </li>
-          <li class="nav-item">
-            <a class="nav-link" href="/">Home</a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link" href="#about">About</a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link" href="/download_compounds">Downloads</a>
-          </li>
-          <li class="nav-item"></li>
-            <a class="nav-link" href="https://github.com/computational-chemical-biology/npmine_web_app/issues">Issues and Corrections</a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link" href="https://github.com/computational-chemical-biology/npmine_web_app">Documentation</a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link" href="/search_menu">Search</a>
-          </li>
-          {% if current_user.is_authenticated and current_user.role.name == 'admin' %}
-          <li class="nav-item">
-            <a class="nav-link" href="{{ url_for('users.admin_panel') }}">Control Panel</a>
-          </li>
-          {% endif %}
-        </ul>
-      </div>
-      {% if logged_in %}
-      <ul class="navbar-nav ml-auto">
-        <li class="nav-item">
-          <a class="nav-link" id="login" href="/new_compound">
-            <button type="button" class="btn btn-outline-dark">Deposit</button>
-          </a>
-        </li>
-      </ul>
-      {% endif %}
-    </div>
-  </nav>
-</div>
-  </nav>    
-  <div id="myCarousel" class="carousel slide mb-6" data-bs-ride="carousel" data-bs-interval="10000">
-    <div class="carousel-indicators">
-      <button type="button" data-bs-target="#myCarousel" data-bs-slide-to="0" class="active" aria-current="true" aria-label="Slide 1"></button>
-      <button type="button" data-bs-target="#myCarousel" data-bs-slide-to="1" aria-label="Slide 2"></button>
-      <button type="button" data-bs-target="#myCarousel" data-bs-slide-to="2" aria-label="Slide 3"></button>
-    </div>
-    <div class="carousel-inner">
-      <!-- Second page content moved to first carousel item -->
-      <div class="carousel-item active" data-bs-interval="10000">
-        <svg class="bd-placeholder-img" width="100%" height="300" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" preserveAspectRatio="xMidYMid slice" focusable="false">
-          <rect width="100%" height="400" fill="var(--bs-secondary-color)"/>
-        </svg>
-        <div class="container">
-          <div class="carousel-caption text-start">
-            <h1>Add natural products and other compounds</h1>
-            <p>Choose what compounds are public and which are private!</p>
-          </div>
-        </div>
-      </div>
-  
-      <div class="carousel-item" data-bs-interval="10000">
-        <svg class="bd-placeholder-img" width="100%" height="300" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" preserveAspectRatio="xMidYMid slice" focusable="false">
-          <rect width="100%" height="400" fill="var(--bs-secondary-color)"/>
-        </svg>
-        <div class="container">
-          <div class="carousel-caption">
-            <a href="https://forms.gle/fnkUPYsEmuVc2Coo8" class="carousel-link">
-              <h1>Click here to request access!</h1>
-            </a>
-            <p class="opacity-75">Search compounds of interest by DOI, Compound Name, Structure, and Taxa</p>
-          </div>
-        </div>
-      </div>
-  
-      <!-- The third carousel item remains unchanged -->
-      <div class="carousel-item" data-bs-interval="10000">
-        <svg class="bd-placeholder-img" width="100%" height="300" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" preserveAspectRatio="xMidYMid slice" focusable="false">
-          <rect width="100%" height="400" fill="var(--bs-secondary-color)"/>
-        </svg>
-        <div class="container">
-          <div class="carousel-caption text-end">
-            <h1>You can also make your own database locally!</h1>
-            <p>Check out our documentation for more information</p>
-          </div>
-        </div>
-      </div>
-    </div>
-  
-    <button class="carousel-control-prev" type="button" data-bs-target="#myCarousel" data-bs-slide="prev">
-      <span class="carousel-control-prev-icon" aria-hidden="true"></span>
-      <span class="visually-hidden">Previous</span>
-    </button>
-    <button class="carousel-control-next" type="button" data-bs-target="#myCarousel" data-bs-slide="next">
-      <span class="carousel-control-next-icon" aria-hidden="true"></span>
-      <span class="visually-hidden">Next</span>
-    </button>
-  </div>
+
+{% include 'components/navbar.html' %}
+{% include 'components/main-banner.html' %}
+
+{% if current_user.is_authenticated and (current_user.role_id == 1 or compound.user_id == current_user.id) %}
 <div class="container w-50 p-3 d-flex justify-content-end">
   <a class="btn btn-primary" href="{{ url_for('compounds.edit_compound', id=compound.id) }}">
     Edit Compound
   </a>
 </div>
+{% endif %}
+
 <div class="container w-50 p-3">
     <table class="table table-bordered">
       <tbody>
@@ -202,41 +96,7 @@
     </tbody>
 </table>
 </div>
-<section class="page-section" id="about">
-  <div class="container">
-      <h2 class="page-section-heading text-center text-uppercase mb-0" style="color: #000000"><b>About NPMINE</b></h2>
-      <div class="divider-custom">
-          <div class="divider-custom-line"></div>
-          <div class="divider-custom-icon"><i class="fas fa-atom"></i></div>
-          <div class="divider-custom-line"></div>
-      </div>
-      <div class="row justify-content-center">
-          <div class="col-md-6 col-lg-4 mb-5">
-            <img class="img-fluid" src="/static/assets/img/npmine_report_terminal.png" alt="..." />
-          </div>
-          <div class="col-md-6 col-lg-8 mb-5">
-            <br>
-            <br>
-            <p style="font-family: 'Quicksand', sans-serif; font-size: 20px; text-align: center;">NPMINE (Natural Products MINing) is an open-source modular tool that utilizes text mining techniques to extract chemical entities, which may include natural products (NPs), and taxonomic mentions from scientific literature. This online database serves the purpose of storing information that have been extracted by NPMINE, thereby enabling searches and analyses.</p>
-          </div>
-      </div>
-  </div>
-</section>
-<br>
-<footer class="footer text-center" style="background-color: #000000">
-<div class="container" style="color: #ffffff">
-    <br>
-    <div class="row">
-      <div>
-        <p class="lead mb-0" style="text-align: justify; font-size: 15px">
-         <a href="https://github.com/computational-chemical-biology/npmine">NPMINE</a> and <a href="https://github.com/computational-chemical-biology/npmine_web_app">NPMINE Online Database</a> is a freely accessible and community-driven digital platform. Users are invited to report bugs, make feature requests, and communicate general issues via the <a href="https://github.com/computational-chemical-biology/npmine_web_app/issues">issues tracker on GitHub.</a> The development and maintenance of NPMINE and NPMINE Online Database are overseen by the <a href="http://ccbl.fcfrp.usp.br/ccbl/index.html">Computational Chemical Biology group</a>, based at the <a href="https://fcfrp.usp.br/en/">School of Pharmaceutical Sciences</a> in Ribeirão Preto - SP, Brazil.
-        </p>
-      </div>
-        <div>
-            <a class="btn btn-social mx-1" href="https://github.com/computational-chemical-biology/npmine"><img src="static/assets/img/github.webp" width="30"><!--<i class="fas fa-download"></i>--></a>
-        </div> 
-    </div>
-    <br>
-</div>
-</footer>
+
+{% include 'components/footer.html' %}
+
 {% endblock %}
