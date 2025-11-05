@@ -8,12 +8,13 @@ Create Date: 2024-11-12 00:57:55.161765
 from alembic import op
 import sqlalchemy as sa
 
-try:
-    from websiteNPMINE.models import MOL
-except ImportError:
-    class MOL(sa.types.UserDefinedType):
-        def get_col_spec(self, **kw):
-            return "MOL"
+class MOL(sa.types.UserDefinedType):
+    def get_col_spec(self, **kw):
+        return "MOL"
+        
+class BFP(sa.types.UserDefinedType):
+    def get_col_spec(self, **kw):
+        return "BFP"
 
 # revision identifiers, used by Alembic.
 revision = '4ce0890619df'
@@ -57,16 +58,17 @@ def upgrade():
     sa.Column('compound_name', sa.String(length=1024), nullable=True),
     sa.Column('compound_image', sa.String(length=5000), nullable=True),
     sa.Column('molecule', MOL(), nullable=True),
-    sa.Column('smiles', sa.String(length=5000), nullable=True),
+    sa.Column('fingerprint', BFP(), nullable=True),
+    sa.Column('smiles', sa.String(length=2048), nullable=True),
     sa.Column('article_url', sa.String(length=500), nullable=True),
-    sa.Column('inchi_key', sa.String(length=5000), nullable=True),
+    sa.Column('inchi_key', sa.String(length=1024), nullable=True),
     sa.Column('exact_molecular_weight', sa.Float(), nullable=True),
-    sa.Column('class_results', sa.String(length=5000), nullable=True),
-    sa.Column('superclass_results', sa.String(length=5000), nullable=True),
-    sa.Column('pathway_results', sa.String(length=5000), nullable=True),
+    sa.Column('class_results', sa.String(length=1024), nullable=True),
+    sa.Column('superclass_results', sa.String(length=1024), nullable=True),
+    sa.Column('pathway_results', sa.String(length=1024), nullable=True),
     sa.Column('isglycoside', sa.Boolean(), nullable=True, server_default=sa.text('true')),
     sa.Column('ispublic', sa.Boolean(), nullable=True, server_default=sa.text('true')),
-    sa.Column('pubchem_id', sa.String(length=5000), nullable=True),
+    sa.Column('pubchem_id', sa.String(length=2048), nullable=True),
     sa.Column('inchi', sa.String(length=5000), nullable=True),
     sa.Column('source', sa.String(length=10), nullable=True),
     sa.Column('user_id', sa.Integer(), nullable=True),
@@ -85,28 +87,40 @@ def upgrade():
         postgresql_using='gist'         
     )
 
+    op.create_index(
+        'idx_compounds_fingerprint_gist',  
+        'compounds',                       
+        ['fingerprint'],                   
+        postgresql_using='gist'            
+    )
+
+    op.execute(
+        "UPDATE compounds SET fingerprint = morganbv_fp(molecule) WHERE molecule IS NOT NULL;"
+    )
+
     op.execute("""
-        CREATE OR REPLACE FUNCTION update_molecule_from_smiles()
-        RETURNS TRIGGER AS $$
-        BEGIN
-            -- This check safely handles all cases:
-            -- 1. INSERT: OLD.smiles is NULL, NEW.smiles is 'CCO'. Runs.
-            -- 2. UPDATE (Change): OLD.smiles is 'CCO', NEW.smiles is 'CCC'. Runs.
-            -- 3. UPDATE (No Change): OLD.smiles is 'CCO', NEW.smiles is 'CCO'. Skips.
-            IF NEW.smiles IS DISTINCT FROM OLD.smiles THEN
-                NEW.molecule = mol_from_smiles(NEW.smiles::cstring);
-            END IF;
+    CREATE OR REPLACE FUNCTION update_molecule_from_smiles()
+    RETURNS TRIGGER AS $$
+    BEGIN
+        -- This check safely handles INSERTs and UPDATEs
+        IF NEW.smiles IS DISTINCT FROM OLD.smiles THEN
+            NEW.molecule = mol_from_smiles(NEW.smiles::cstring);
             
-            RETURN NEW;
-        END;
-        $$ LANGUAGE plpgsql;
+            -- === THIS IS THE NEW LINE ===
+            -- Also update the fingerprint at the same time
+            NEW.fingerprint = morganbv_fp(NEW.molecule);
+        END IF;
+        
+        RETURN NEW;
+    END;
+    $$ LANGUAGE plpgsql;
     """)
 
     op.execute("""
-        CREATE TRIGGER trg_update_molecule
-        BEFORE INSERT OR UPDATE ON compounds
-        FOR EACH ROW
-        EXECUTE FUNCTION update_molecule_from_smiles();
+    CREATE TRIGGER trg_update_molecule
+    BEFORE INSERT OR UPDATE ON compounds
+    FOR EACH ROW
+    EXECUTE FUNCTION update_molecule_from_smiles();
     """)
 
     op.create_table('compound_history',
@@ -175,6 +189,11 @@ def downgrade():
     op.execute("DROP TRIGGER IF EXISTS trg_update_molecule ON compounds;")
     op.execute("DROP FUNCTION IF EXISTS update_molecule_from_smiles();")
     op.drop_index('idx_compounds_molecule_gist', table_name='compounds')
+
+    op.drop_index(
+        'idx_compounds_fingerprint_gist',
+        table_name='compounds'
+    )
 
     op.execute("DROP EXTENSION IF EXISTS rdkit;")
     # ### end Alembic commands ###

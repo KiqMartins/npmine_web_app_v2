@@ -17,6 +17,13 @@ def load_user(user_id):
 class MOL(UserDefinedType):
     def get_col_spec(self, **kw):
         return "MOL"
+    
+class BFP(UserDefinedType):
+    """
+    Custom SQLAlchemy type for the RDKit 'BFP' (bit fingerprint) data type.
+    """
+    def get_col_spec(self, **kw):
+        return "BFP"
 
 class Role(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -103,6 +110,7 @@ class Compounds(db.Model):
     compound_image = db.Column(db.String(5000))
     molecule = db.Column(MOL(), nullable=True)
     smiles = db.Column(db.String(5000))
+    fingerprint = db.Column(BFP(), nullable=True)
     article_url = db.Column(db.String(500))
     inchi_key = db.Column(db.String(5000))
     exact_molecular_weight = db.Column(db.Float)
