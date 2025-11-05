@@ -43,6 +43,9 @@ def sign_up():
         default_role_id = 3  
         user = Accounts(
             username=form.username.data,
+            name=form.name.data,
+            surname=form.surname.data,
+            academic_position=form.academic_position.data,
             email=form.email.data,
             password=hashed_password,
             role_id=default_role_id  

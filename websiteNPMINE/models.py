@@ -32,11 +32,14 @@ class Role(db.Model):
     def __repr__(self):
         return f'<Role: {self.name}>'
 
-class Accounts(db.Model, UserMixin):
+class Accounts(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(20), unique=True, nullable=False)
+    name = db.Column(db.String(256), nullable=False)
+    surname = db.Column(db.String(256), nullable=False)
+    academic_level = db.Column(db.String(32), nullable=True)
     email = db.Column(db.String(120), unique=True, nullable=False)
-    password = db.Column(db.String(128), nullable=False)
+    password = db.Column(db.String(64), nullable=False)
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
     deleted_at = db.Column(db.DateTime, nullable=True)
